@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Sparkles } from 'lucide-react';
+import NavRail from '../components/NavRail';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
+import ProfileSidebar from '../components/ProfileSidebar';
 import NewGroupModal from '../components/NewGroupModal';
 import { chatService } from '../services/chat.service';
 import type { Message, Conversation } from '../services/chat.service';
@@ -16,12 +18,14 @@ const Chat: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
+  const [activeTab, setActiveTab] = useState('chat');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<(Message & { status?: 'sending' | 'sent' | 'failed' })[]>([]);
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({}); // conversationId -> usernames[]
   
@@ -50,12 +54,10 @@ const Chat: React.FC = () => {
       });
     });
 
-    on(SOCKET_EVENTS.TYPING_STOP, ({ userId, targetId }: { userId: string, targetId: string }) => {
-      // Note: We'd need the username here too if we want to be precise, or just use userId
+    on(SOCKET_EVENTS.TYPING_STOP, ({ userId, username, targetId }: { userId: string, username: string, targetId: string }) => {
       setTypingUsers(prev => {
-        // This is a bit simplified since we don't have the username in typing_stop easily
-        // Let's assume one user for now or refine the event
-        return { ...prev, [targetId]: [] }; 
+        const current = prev[targetId] || [];
+        return { ...prev, [targetId]: current.filter(u => u !== username) }; 
       });
     });
 
@@ -120,6 +122,7 @@ const Chat: React.FC = () => {
           ? { 
               ...c, 
               lastMessage: message.content, 
+              lastMessageSenderId: message.senderId,
               lastMessageTime: message.timestamp,
               unreadCount: selectedConversation?.id === targetId ? 0 : (c.unreadCount + 1)
             } 
@@ -185,7 +188,7 @@ const Chat: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-[#0f172a] flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="h-screen w-screen bg-[#0a0f1d] flex flex-col items-center justify-center relative overflow-hidden">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px]" />
         <motion.div 
           animate={{ 
@@ -209,7 +212,9 @@ const Chat: React.FC = () => {
   }
 
   return (
-    <div className="h-screen w-screen bg-[#0f172a] flex overflow-hidden">
+    <div className="h-screen w-screen bg-[#0a0f1d] flex overflow-hidden">
+      <NavRail activeTab={activeTab} onTabChange={setActiveTab} />
+      
       <Sidebar
         conversations={conversations}
         selectedId={selectedConversation?.id || null}
@@ -218,7 +223,7 @@ const Chat: React.FC = () => {
         onlineUsers={onlineUsers}
       />
       
-      <main className="flex-1 flex flex-col relative">
+      <main className="flex-1 flex flex-col relative overflow-hidden bg-[#0a0f1d]">
         <AnimatePresence mode="wait">
           {messagesLoading ? (
             <motion.div 
@@ -226,7 +231,7 @@ const Chat: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-20 flex items-center justify-center bg-[#0f172a]/50 backdrop-blur-sm"
+              className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0f1d]/50 backdrop-blur-sm"
             >
               <div className="flex flex-col items-center">
                  <div className="w-10 h-1 border-t-2 border-blue-500 rounded-full animate-bounce mb-2" />
@@ -249,11 +254,19 @@ const Chat: React.FC = () => {
                 isOnline={selectedConversation && !selectedConversation.isGroup 
                   ? onlineUsers.has(selectedConversation.id) // In 1:1, conversation ID is the other user's ID
                   : false}
+                onToggleProfile={() => setIsProfileOpen(!isProfileOpen)}
+                isProfileOpen={isProfileOpen}
               />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
+
+      <ProfileSidebar 
+        conversation={selectedConversation}
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+      />
 
       {isGroupModalOpen && (
         <NewGroupModal

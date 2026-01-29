@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticate } from '../middleware/auth.js';
 import Conversation from '../models/Conversation.js';
 import Message from '../models/Message.js';
+import User from '../models/User.js';
 const router = express.Router();
 router.use(authenticate);
 router.get('/conversations', async (req, res) => {
@@ -15,6 +16,7 @@ router.get('/conversations', async (req, res) => {
             isGroup: c.isGroup,
             participants: c.participants,
             lastMessage: c.lastMessage,
+            lastMessageSenderId: c.lastMessageSenderId,
             lastMessageTime: c.lastMessageTime,
             unreadCount: 0 // Simplified
         }));
@@ -54,10 +56,39 @@ router.post('/groups', async (req, res) => {
             participants: [...participants, req.user.id]
         });
         await conversation.save();
-        res.status(201).json(conversation);
+        res.status(201).json({
+            id: conversation._id,
+            name: conversation.name,
+            isGroup: conversation.isGroup,
+            participants: conversation.participants,
+            unreadCount: 0
+        });
     }
     catch (err) {
         res.status(400).json({ message: 'Error creating group' });
+    }
+});
+router.get('/users/search', async (req, res) => {
+    try {
+        const { query } = req.query;
+        if (!query)
+            return res.json([]);
+        const users = await User.find({
+            _id: { $ne: req.user.id },
+            $or: [
+                { username: { $regex: query, $options: 'i' } },
+                { email: { $regex: query, $options: 'i' } }
+            ]
+        }).select('username email avatar').limit(10);
+        res.json(users.map(u => ({
+            id: u._id,
+            username: u.username,
+            email: u.email,
+            avatar: u.avatar
+        })));
+    }
+    catch (err) {
+        res.status(500).json({ message: 'Error searching users' });
     }
 });
 export default router;

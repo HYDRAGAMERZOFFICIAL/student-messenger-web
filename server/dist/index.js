@@ -60,7 +60,7 @@ io.on('connection', (socket) => {
     });
     socket.on(SOCKET_EVENTS.TYPING_STOP, (data) => {
         const { targetId } = data;
-        socket.to(targetId).emit(SOCKET_EVENTS.TYPING_STOP, { userId: user.id, targetId });
+        socket.to(targetId).emit(SOCKET_EVENTS.TYPING_STOP, { userId: user.id, username: user.username, targetId });
     });
     socket.on(SOCKET_EVENTS.SEND_MESSAGE, async (data) => {
         try {
@@ -90,6 +90,7 @@ io.on('connection', (socket) => {
                 await message.save();
                 await Conversation.findByIdAndUpdate(conversation._id, {
                     lastMessage: content,
+                    lastMessageSenderId: user.id,
                     lastMessageTime: new Date()
                 });
                 const messageData = {

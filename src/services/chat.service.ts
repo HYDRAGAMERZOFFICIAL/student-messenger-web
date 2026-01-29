@@ -16,6 +16,7 @@ export interface Conversation {
   isGroup: boolean;
   participants: string[];
   lastMessage?: string;
+  lastMessageSenderId?: string;
   lastMessageTime?: string;
   unreadCount: number;
 }
@@ -39,6 +40,11 @@ export const chatService = {
 
   async createGroup(name: string, participants: string[]): Promise<Conversation> {
     const response = await api.post('/chat/groups', { name, participants });
+    return response.data;
+  },
+
+  async searchUsers(query: string): Promise<{ id: string; username: string; email: string; avatar?: string }[]> {
+    const response = await api.get(`/chat/users/search?query=${encodeURIComponent(query)}`);
     return response.data;
   },
 };

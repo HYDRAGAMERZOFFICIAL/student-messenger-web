@@ -82,50 +82,50 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   return (
     <div className="flex-1 flex flex-col bg-[#0f172a] overflow-hidden relative">
       {/* Header */}
-      <div className="bg-[#0f172a]/80 backdrop-blur-xl px-6 py-4 border-b border-white/5 flex items-center justify-between z-10">
-        <div className="flex items-center">
+      <div className="bg-[#0f172a]/40 backdrop-blur-2xl px-8 py-5 border-b border-white/5 flex items-center justify-between z-20">
+        <div className="flex items-center space-x-5">
           <motion.div 
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
+            initial={{ scale: 0.8, rotate: -10 }}
+            animate={{ scale: 1, rotate: 0 }}
             className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center text-white font-black mr-4 shadow-lg",
-              conversation.isGroup ? 'bg-indigo-600' : 'bg-blue-600'
+              "w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-2xl",
+              conversation.isGroup ? 'bg-indigo-600 shadow-indigo-500/20' : 'bg-blue-600 shadow-blue-500/20'
             )}
           >
             {conversation.name.charAt(0).toUpperCase()}
           </motion.div>
           <div>
-            <h3 className="font-black text-white leading-none mb-1">{conversation.name}</h3>
+            <h3 className="font-black text-white text-lg tracking-tight leading-none mb-1.5">{conversation.name}</h3>
             <div className="flex items-center space-x-2">
-              <span className={cn(
-                "w-1.5 h-1.5 rounded-full transition-colors",
-                isOnline || conversation.isGroup ? "bg-green-500 animate-pulse" : "bg-slate-600"
+              <div className={cn(
+                "w-2 h-2 rounded-full transition-all duration-500",
+                isOnline || conversation.isGroup ? "bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)] animate-pulse" : "bg-slate-600"
               )} />
-              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">
                 {typingUsers.length > 0 
-                  ? `${typingUsers.join(', ')} ${typingUsers.length === 1 ? 'is' : 'are'} typing...`
-                  : conversation.isGroup ? `${conversation.participants.length} Students` : (isOnline ? 'Active Connection' : 'Offline')}
+                  ? `${typingUsers[0]} is transmitting...`
+                  : conversation.isGroup ? `${conversation.participants.length} Active Nodes` : (isOnline ? 'Encrypted Connection' : 'Node Offline')}
               </p>
             </div>
           </div>
         </div>
         
-        <div className="flex items-center space-x-2">
-          <button className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-            <Phone size={20} />
+        <div className="flex items-center space-x-3">
+          <button className="w-11 h-11 flex items-center justify-center glass-card hover:bg-white/5 text-slate-500 hover:text-white transition-all active:scale-90">
+            <Phone size={18} />
           </button>
-          <button className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-            <Video size={20} />
+          <button className="w-11 h-11 flex items-center justify-center glass-card hover:bg-white/5 text-slate-500 hover:text-white transition-all active:scale-90">
+            <Video size={18} />
           </button>
-          <button className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-            <Info size={20} />
+          <button className="w-11 h-11 flex items-center justify-center glass-card hover:bg-white/5 text-slate-500 hover:text-white transition-all active:scale-90">
+            <Info size={18} />
           </button>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 p-6 overflow-y-auto scrollbar-hide">
-        <div className="max-w-4xl mx-auto space-y-2">
+      <div className="flex-1 p-8 overflow-y-auto scrollbar-hide bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] bg-fixed opacity-90">
+        <div className="max-w-4xl mx-auto space-y-4">
           <AnimatePresence initial={false}>
             {messages.map((msg, idx) => {
               const isOwnMessage = msg.senderId === user?.id || msg.senderId === 'me';
@@ -146,20 +146,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       </div>
 
       {/* Input Area */}
-      <div className="p-6 bg-[#0f172a]/80 backdrop-blur-xl border-t border-white/5">
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex items-center space-x-3">
-          <div className="flex-1 flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 py-1 focus-within:ring-2 focus-within:ring-blue-500/30 transition-all">
-            <button type="button" className="p-2 text-slate-500 hover:text-blue-400 transition-colors">
+      <div className="p-8 pt-4 bg-gradient-to-t from-[#0f172a] to-transparent">
+        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex items-center space-x-4">
+          <div className="flex-1 flex items-center glass-panel !rounded-[24px] px-2 focus-within:ring-2 focus-within:ring-blue-500/30 transition-all group">
+            <button type="button" className="p-4 text-slate-600 hover:text-blue-400 transition-colors">
               <Paperclip size={20} />
             </button>
             <input
-              className="flex-1 bg-transparent border-none focus:outline-none text-[15px] font-medium text-white placeholder-slate-500 py-3 px-2"
+              className="flex-1 bg-transparent border-none focus:outline-none text-[15px] font-medium text-white placeholder-slate-600 py-5 px-2"
               type="text"
-              placeholder="Type your message..."
+              placeholder="Transmit data..."
               value={newMessage}
               onChange={handleInputChange}
             />
-            <button type="button" className="p-2 text-slate-500 hover:text-yellow-400 transition-colors">
+            <button type="button" className="p-4 text-slate-600 hover:text-yellow-400 transition-colors">
               <Smile size={20} />
             </button>
           </div>
@@ -167,9 +167,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           <button
             type="submit"
             disabled={!newMessage.trim()}
-            className="bg-blue-600 text-white p-4 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-50 disabled:grayscale shadow-xl shadow-blue-500/20 active:scale-95 flex items-center justify-center"
+            className="btn-primary !p-5 !rounded-[24px] shadow-2xl active:scale-90"
           >
-            <Send size={20} />
+            <Send size={22} strokeWidth={2.5} />
           </button>
         </form>
       </div>
