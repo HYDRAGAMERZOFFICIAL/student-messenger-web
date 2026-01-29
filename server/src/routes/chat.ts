@@ -1,5 +1,6 @@
 import express from 'express';
-import { authenticate, AuthRequest } from '../middleware/auth.js';
+import { authenticate } from '../middleware/auth.js';
+import type { AuthRequest } from '../middleware/auth.js';
 import Conversation from '../models/Conversation.js';
 import Message from '../models/Message.js';
 import User from '../models/User.js';
@@ -32,8 +33,12 @@ router.get('/conversations', async (req: AuthRequest, res) => {
 
 router.get('/messages/:conversationId', async (req: AuthRequest, res) => {
   try {
+    const { conversationId } = req.params;
+    if (!conversationId) {
+      return res.status(400).json({ message: 'Conversation ID is required' });
+    }
     const messages = await Message.find({
-      conversationId: req.params.conversationId
+      conversationId
     }).sort({ timestamp: 1 });
     
     res.json(messages.map((m: any) => ({

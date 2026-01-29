@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { SOCKET_URL, STORAGE_KEYS } from '../utils/constants';
+import { SOCKET_EVENTS } from '../utils/socketEvents';
 
 export const useSocket = () => {
   const socketRef = useRef<Socket | null>(null);
@@ -17,12 +18,12 @@ export const useSocket = () => {
       reconnectionDelay: 1000,
     });
 
-    socket.on('connect', () => {
+    socket.on(SOCKET_EVENTS.CONNECT, () => {
       setIsConnected(true);
       console.log('Socket connected');
     });
 
-    socket.on('disconnect', () => {
+    socket.on(SOCKET_EVENTS.DISCONNECT, () => {
       setIsConnected(false);
       console.log('Socket disconnected');
     });

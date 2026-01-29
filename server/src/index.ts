@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js';
 import chatRoutes from './routes/chat.js';
 import Message from './models/Message.js';
 import Conversation from './models/Conversation.js';
+import { SOCKET_EVENTS } from './utils/socketEvents.js';
 
 dotenv.config();
 
@@ -33,6 +34,9 @@ app.get('/', (req, res) => {
 });
 
 // Socket.IO middleware for authentication
+// Track online users
+const onlineUsers = new Map<string, string>(); // userId -> socketId
+
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
   if (!token) {
@@ -51,9 +55,27 @@ io.on('connection', (socket) => {
   const user = (socket as any).user;
   console.log('a user connected:', user.username);
   
+  // Mark user as online
+  onlineUsers.set(user.id, socket.id);
   socket.join(user.id);
+  
+  // Broadcast presence
+  io.emit(SOCKET_EVENTS.USER_ONLINE, { userId: user.id });
+  
+  // Send list of currently online users to the new connection
+  socket.emit(SOCKET_EVENTS.ONLINE_USERS, Array.from(onlineUsers.keys()));
 
-  socket.on('sendMessage', async (data) => {
+  socket.on(SOCKET_EVENTS.TYPING_START, (data) => {
+    const { targetId } = data; // Could be userId or groupId
+    socket.to(targetId).emit(SOCKET_EVENTS.TYPING_START, { userId: user.id, username: user.username, targetId });
+  });
+
+  socket.on(SOCKET_EVENTS.TYPING_STOP, (data) => {
+    const { targetId } = data;
+    socket.to(targetId).emit(SOCKET_EVENTS.TYPING_STOP, { userId: user.id, targetId });
+  });
+
+  socket.on(SOCKET_EVENTS.SEND_MESSAGE, async (data) => {
     try {
       const { receiverId, groupId, content } = data;
       const targetId = groupId || receiverId;
@@ -101,11 +123,11 @@ io.on('connection', (socket) => {
 
         if (conversation.isGroup) {
           conversation.participants.forEach((pId: any) => {
-            io.to(pId.toString()).emit('message', messageData);
+            io.to(pId.toString()).emit(SOCKET_EVENTS.RECEIVE_MESSAGE, messageData);
           });
         } else {
-          io.to(targetId).emit('message', messageData);
-          socket.emit('message', messageData); // Echo back to sender
+          io.to(targetId).emit(SOCKET_EVENTS.RECEIVE_MESSAGE, messageData);
+          socket.emit(SOCKET_EVENTS.RECEIVE_MESSAGE, messageData); // Echo back to sender
         }
       }
     } catch (err) {
@@ -113,8 +135,10 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on(SOCKET_EVENTS.DISCONNECT, () => {
     console.log('user disconnected:', user.username);
+    onlineUsers.delete(user.id);
+    io.emit(SOCKET_EVENTS.USER_OFFLINE, { userId: user.id });
   });
 });
 
