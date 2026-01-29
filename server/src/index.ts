@@ -4,6 +4,11 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
+import authRoutes from './routes/auth.js';
+import chatRoutes from './routes/chat.js';
+import Message from './models/Message.js';
+import Conversation from './models/Conversation.js';
 
 dotenv.config();
 
@@ -19,20 +24,109 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/chat', chatRoutes);
+
 app.get('/', (req, res) => {
   res.send('Chat API is running');
 });
 
+// Socket.IO middleware for authentication
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error('Authentication error'));
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    (socket as any).user = decoded;
+    next();
+  } catch (err) {
+    next(new Error('Authentication error'));
+  }
+});
+
 io.on('connection', (socket) => {
-  console.log('a user connected:', socket.id);
+  const user = (socket as any).user;
+  console.log('a user connected:', user.username);
+  
+  socket.join(user.id);
+
+  socket.on('sendMessage', async (data) => {
+    try {
+      const { receiverId, groupId, content } = data;
+      const targetId = groupId || receiverId;
+      
+      let conversation = await Conversation.findOne({
+        $or: [
+          { _id: targetId },
+          { participants: { $all: [user.id, targetId] }, isGroup: false }
+        ]
+      });
+
+      if (!conversation && !groupId) {
+        conversation = new Conversation({
+          name: 'Private Chat',
+          participants: [user.id, targetId],
+          isGroup: false
+        });
+        await conversation.save();
+      }
+
+      if (conversation) {
+        const message = new Message({
+          conversationId: conversation._id,
+          senderId: user.id,
+          content,
+          timestamp: new Date()
+        });
+        await message.save();
+
+        await Conversation.findByIdAndUpdate(conversation._id, {
+          lastMessage: content,
+          lastMessageTime: new Date()
+        });
+
+        const messageData = {
+          id: message._id,
+          senderId: user.id,
+          senderName: user.username,
+          content,
+          timestamp: message.timestamp,
+          conversationId: conversation._id,
+          groupId: conversation.isGroup ? conversation._id : undefined,
+          receiverId: !conversation.isGroup ? targetId : undefined
+        };
+
+        if (conversation.isGroup) {
+          conversation.participants.forEach((pId: any) => {
+            io.to(pId.toString()).emit('message', messageData);
+          });
+        } else {
+          io.to(targetId).emit('message', messageData);
+          socket.emit('message', messageData); // Echo back to sender
+        }
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+    }
+  });
 
   socket.on('disconnect', () => {
-    console.log('user disconnected:', socket.id);
+    console.log('user disconnected:', user.username);
   });
 });
 
 const PORT = process.env.PORT || 5000;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/student-messenger';
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+mongoose.connect(MONGODB_URI)
+  .then(() => {
+    console.log('Connected to MongoDB');
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch(err => console.error('Could not connect to MongoDB', err));
+
